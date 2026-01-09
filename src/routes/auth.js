@@ -293,7 +293,7 @@ router.get('/logout', (req, res) => {
     if (err) {
       console.error('Logout error:', err);
     }
-    res.redirect('/auth/login');
+    res.redirect('/files');
   });
 });
 

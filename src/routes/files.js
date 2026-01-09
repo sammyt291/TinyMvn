@@ -43,14 +43,26 @@ const upload = multer({
   }
 });
 
-// Files page
-router.get('/', requireAuth, (req, res) => {
+// Files page (public access)
+router.get('/', (req, res) => {
   const filesHtml = fs.readFileSync(path.join(__dirname, '..', '..', 'views', 'files.html'), 'utf8');
   res.send(filesHtml);
 });
 
-// List projects
-router.get('/api/projects', requireAuth, (req, res) => {
+// Check if user is logged in
+router.get('/api/me', (req, res) => {
+  if (req.session && req.session.user) {
+    res.json({ 
+      loggedIn: true, 
+      user: { username: req.session.user.username }
+    });
+  } else {
+    res.json({ loggedIn: false });
+  }
+});
+
+// List projects (public access)
+router.get('/api/projects', (req, res) => {
   const projectsDir = path.resolve(__dirname, '..', '..', config.storage.projectsDir);
   
   try {
@@ -92,8 +104,8 @@ router.get('/api/projects', requireAuth, (req, res) => {
   }
 });
 
-// Get project files
-router.get('/api/projects/:name', requireAuth, (req, res) => {
+// Get project files (public access)
+router.get('/api/projects/:name', (req, res) => {
   const projectsDir = path.resolve(__dirname, '..', '..', config.storage.projectsDir);
   const projectPath = path.join(projectsDir, req.params.name);
   
@@ -123,8 +135,8 @@ router.get('/api/projects/:name', requireAuth, (req, res) => {
   }
 });
 
-// View file content
-router.get('/api/projects/:name/file', requireAuth, (req, res) => {
+// View file content (public access)
+router.get('/api/projects/:name/file', (req, res) => {
   const projectsDir = path.resolve(__dirname, '..', '..', config.storage.projectsDir);
   const filePath = req.query.path;
   

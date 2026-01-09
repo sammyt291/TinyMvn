@@ -53,13 +53,9 @@ app.use('/auth', authRoutes);
 app.use('/files', filesRoutes);
 app.use(config.repository.basePath, repoRoutes);
 
-// Home route
+// Home route - redirect to files (public access)
 app.get('/', (req, res) => {
-  if (req.session.user) {
-    res.redirect('/files');
-  } else {
-    res.redirect('/auth/login');
-  }
+  res.redirect('/files');
 });
 
 // Server management
