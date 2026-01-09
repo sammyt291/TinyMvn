@@ -262,14 +262,17 @@ router.post('/api/upload', requireAuth, upload.single('file'), async (req, res) 
 
 // Clone from GitHub URL
 router.post('/api/clone', requireAuth, async (req, res) => {
-  const { url, projectName } = req.body;
+  let { url, projectName } = req.body;
   
   if (!url) {
     return res.status(400).json({ error: 'GitHub URL is required' });
   }
   
+  // Clean up URL - trim whitespace and trailing slashes
+  url = url.trim().replace(/\/+$/, '').replace(/\.git$/, '');
+  
   // Validate GitHub URL
-  const githubRegex = /^https?:\/\/(www\.)?github\.com\/[\w.-]+\/[\w.-]+(\.git)?$/;
+  const githubRegex = /^https?:\/\/(www\.)?github\.com\/[\w.-]+\/[\w.-]+$/;
   if (!githubRegex.test(url)) {
     return res.status(400).json({ error: 'Invalid GitHub URL. Use format: https://github.com/owner/repo' });
   }
@@ -279,11 +282,11 @@ router.post('/api/clone', requireAuth, async (req, res) => {
   const cloneDir = path.join(tempDir, uuidv4());
   
   try {
-    // Create temp directory
-    fs.mkdirSync(cloneDir, { recursive: true });
+    // Ensure temp directory exists (but NOT cloneDir - git clone creates it)
+    fs.mkdirSync(tempDir, { recursive: true });
     
     // Clone the repository
-    const gitUrl = url.endsWith('.git') ? url : `${url}.git`;
+    const gitUrl = `${url}.git`;
     
     try {
       execSync(`git clone --depth 1 "${gitUrl}" "${cloneDir}"`, {
@@ -291,7 +294,9 @@ router.post('/api/clone', requireAuth, async (req, res) => {
         stdio: ['pipe', 'pipe', 'pipe']
       });
     } catch (gitError) {
-      throw new Error('Failed to clone repository. Make sure the URL is correct and the repository is public.');
+      const stderr = gitError.stderr ? gitError.stderr.toString() : '';
+      console.error('Git clone error:', stderr || gitError.message);
+      throw new Error('Failed to clone repository. Make sure the URL is correct and the repository is public. ' + (stderr || ''));
     }
     
     // Remove .git directory to save space
@@ -395,11 +400,12 @@ router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
   const cloneDir = path.join(tempDir, uuidv4());
   
   try {
-    // Create temp directory
-    fs.mkdirSync(cloneDir, { recursive: true });
+    // Ensure temp directory exists (but NOT cloneDir - git clone creates it)
+    fs.mkdirSync(tempDir, { recursive: true });
     
-    // Clone the repository
-    const gitUrl = meta.githubUrl.endsWith('.git') ? meta.githubUrl : `${meta.githubUrl}.git`;
+    // Clone the repository - normalize the URL first
+    const normalizedUrl = meta.githubUrl.trim().replace(/\/+$/, '').replace(/\.git$/, '');
+    const gitUrl = `${normalizedUrl}.git`;
     
     try {
       execSync(`git clone --depth 1 "${gitUrl}" "${cloneDir}"`, {
@@ -407,7 +413,9 @@ router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
         stdio: ['pipe', 'pipe', 'pipe']
       });
     } catch (gitError) {
-      throw new Error('Failed to clone repository. The repository may have been deleted or made private.');
+      const stderr = gitError.stderr ? gitError.stderr.toString() : '';
+      console.error('Git clone error (update):', stderr || gitError.message);
+      throw new Error('Failed to clone repository. The repository may have been deleted or made private. ' + (stderr || ''));
     }
     
     // Remove .git directory
