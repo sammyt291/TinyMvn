@@ -44,7 +44,7 @@ router.get('/api/artifacts', (req, res) => {
         // Generate Maven-style coordinates
         const groupId = config.repository.groupId;
         const artifactId = entry.name;
-        const version = '1.0.0'; // Default version
+        const version = meta.version || '1.0.0'; // Use detected version or default
         
         return {
           name: entry.name,
