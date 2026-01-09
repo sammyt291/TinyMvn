@@ -4,7 +4,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const { execSync, spawn } = require('child_process');
 const { requireAuth } = require('../middleware/auth');
 const { extractAndFindMain, getDirectoryTree, deleteDirectory, copyDirectory, formatFileSize, fixPermissions, findSrcMainFolder } = require('../utils/fileUtils');
 
@@ -92,6 +91,7 @@ router.get('/api/projects', (req, res) => {
           originalFilename: meta.originalFilename || entry.name,
           uploadedBy: meta.uploadedBy || 'unknown',
           githubUrl: meta.githubUrl || null,
+          githubBranch: meta.githubBranch || null,
           lastUpdated: meta.lastUpdated || meta.uploadedAt || stats.birthtime
         };
       })
@@ -260,74 +260,195 @@ router.post('/api/upload', requireAuth, upload.single('file'), async (req, res) 
   }
 });
 
-// Helper function to check if git is available
-function isGitAvailable() {
-  try {
-    execSync('git --version', { stdio: ['pipe', 'pipe', 'pipe'] });
-    return true;
-  } catch (err) {
-    return false;
-  }
+// Parse GitHub URL to extract owner and repo
+function parseGitHubUrl(url) {
+  url = url.trim().replace(/\/+$/, '').replace(/\.git$/, '');
+  const match = url.match(/github\.com\/([\w.-]+)\/([\w.-]+)/);
+  if (!match) return null;
+  return { owner: match[1], repo: match[2] };
 }
 
-// Clone from GitHub URL
-router.post('/api/clone', requireAuth, async (req, res) => {
-  let { url, projectName } = req.body;
+// Fetch branches from GitHub API
+router.post('/api/github/branches', requireAuth, async (req, res) => {
+  let { url } = req.body;
   
   if (!url) {
     return res.status(400).json({ error: 'GitHub URL is required' });
   }
   
-  // Check if git is installed
-  if (!isGitAvailable()) {
-    return res.status(500).json({ error: 'Git is not installed on this server. Please contact the administrator or upload a ZIP file instead.' });
-  }
-  
-  // Clean up URL - trim whitespace and trailing slashes
-  url = url.trim().replace(/\/+$/, '').replace(/\.git$/, '');
-  
-  // Validate GitHub URL
-  const githubRegex = /^https?:\/\/(www\.)?github\.com\/[\w.-]+\/[\w.-]+$/;
-  if (!githubRegex.test(url)) {
+  const parsed = parseGitHubUrl(url);
+  if (!parsed) {
     return res.status(400).json({ error: 'Invalid GitHub URL. Use format: https://github.com/owner/repo' });
   }
   
+  try {
+    const https = require('https');
+    
+    // Fetch branches from GitHub API
+    const apiUrl = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/branches?per_page=100`;
+    
+    const branches = await new Promise((resolve, reject) => {
+      const options = {
+        headers: {
+          'User-Agent': 'TinyMvn',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      };
+      
+      https.get(apiUrl, options, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          if (response.statusCode === 404) {
+            reject(new Error('Repository not found. Make sure the URL is correct and the repository is public.'));
+          } else if (response.statusCode !== 200) {
+            reject(new Error(`GitHub API error: ${response.statusCode}`));
+          } else {
+            try {
+              const branches = JSON.parse(data);
+              resolve(branches.map(b => b.name));
+            } catch (e) {
+              reject(new Error('Failed to parse GitHub response'));
+            }
+          }
+        });
+      }).on('error', reject);
+    });
+    
+    // Also fetch default branch
+    const repoUrl = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}`;
+    const defaultBranch = await new Promise((resolve, reject) => {
+      const options = {
+        headers: {
+          'User-Agent': 'TinyMvn',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      };
+      
+      https.get(repoUrl, options, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          if (response.statusCode === 200) {
+            try {
+              const repo = JSON.parse(data);
+              resolve(repo.default_branch || 'main');
+            } catch (e) {
+              resolve('main');
+            }
+          } else {
+            resolve('main');
+          }
+        });
+      }).on('error', () => resolve('main'));
+    });
+    
+    res.json({ 
+      branches, 
+      defaultBranch,
+      owner: parsed.owner,
+      repo: parsed.repo 
+    });
+  } catch (err) {
+    console.error('GitHub branches error:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch branches' });
+  }
+});
+
+// Clone from GitHub URL (downloads zip from branch)
+router.post('/api/clone', requireAuth, async (req, res) => {
+  let { url, branch, projectName } = req.body;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'GitHub URL is required' });
+  }
+  
+  const parsed = parseGitHubUrl(url);
+  if (!parsed) {
+    return res.status(400).json({ error: 'Invalid GitHub URL. Use format: https://github.com/owner/repo' });
+  }
+  
+  // Default to main if no branch specified
+  branch = branch || 'main';
+  
   const tempDir = path.resolve(__dirname, '..', '..', config.storage.tempDir);
   const projectsDir = path.resolve(__dirname, '..', '..', config.storage.projectsDir);
-  const cloneDir = path.join(tempDir, uuidv4());
+  const zipPath = path.join(tempDir, `${uuidv4()}.zip`);
+  const extractDir = path.join(tempDir, uuidv4());
   
   try {
-    // Ensure temp directory exists (but NOT cloneDir - git clone creates it)
     fs.mkdirSync(tempDir, { recursive: true });
     
-    // Clone the repository
-    const gitUrl = `${url}.git`;
+    // Download zip from GitHub
+    const zipUrl = `https://github.com/${parsed.owner}/${parsed.repo}/archive/refs/heads/${branch}.zip`;
     
-    try {
-      execSync(`git clone --depth 1 "${gitUrl}" "${cloneDir}"`, {
-        timeout: 120000, // 2 minute timeout
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-    } catch (gitError) {
-      const stderr = gitError.stderr ? gitError.stderr.toString() : '';
-      console.error('Git clone error:', stderr || gitError.message);
-      throw new Error('Failed to clone repository. Make sure the URL is correct and the repository is public.');
-    }
+    const https = require('https');
     
-    // Remove .git directory to save space
-    const gitDir = path.join(cloneDir, '.git');
-    if (fs.existsSync(gitDir)) {
-      deleteDirectory(gitDir);
+    await new Promise((resolve, reject) => {
+      const downloadZip = (downloadUrl, redirectCount = 0) => {
+        if (redirectCount > 5) {
+          reject(new Error('Too many redirects'));
+          return;
+        }
+        
+        https.get(downloadUrl, (response) => {
+          // Handle redirects
+          if (response.statusCode === 301 || response.statusCode === 302) {
+            const redirectUrl = response.headers.location;
+            downloadZip(redirectUrl, redirectCount + 1);
+            return;
+          }
+          
+          if (response.statusCode === 404) {
+            reject(new Error(`Branch "${branch}" not found. The branch may not exist or the repository may be private.`));
+            return;
+          }
+          
+          if (response.statusCode !== 200) {
+            reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
+            return;
+          }
+          
+          const fileStream = fs.createWriteStream(zipPath);
+          response.pipe(fileStream);
+          
+          fileStream.on('finish', () => {
+            fileStream.close();
+            resolve();
+          });
+          
+          fileStream.on('error', (err) => {
+            fs.unlink(zipPath, () => {});
+            reject(err);
+          });
+        }).on('error', reject);
+      };
+      
+      downloadZip(zipUrl);
+    });
+    
+    // Extract the ZIP
+    fs.mkdirSync(extractDir, { recursive: true });
+    extractAndFindMain(zipPath, extractDir);
+    
+    // GitHub zips have a root folder like "repo-branch", find it
+    const entries = fs.readdirSync(extractDir);
+    let sourceDir = extractDir;
+    if (entries.length === 1) {
+      const singleEntry = path.join(extractDir, entries[0]);
+      if (fs.statSync(singleEntry).isDirectory()) {
+        sourceDir = singleEntry;
+      }
     }
     
     // Fix permissions
-    fixPermissions(cloneDir);
+    fixPermissions(sourceDir);
     
     // Find src/main folder
-    const srcMainPath = findSrcMainFolder(cloneDir);
+    const srcMainPath = findSrcMainFolder(sourceDir);
     
-    // Generate project name from URL or use provided name
-    let finalName = projectName || url.split('/').pop().replace(/\.git$/, '');
+    // Generate project name
+    let finalName = projectName || parsed.repo;
     finalName = finalName.replace(/[^a-zA-Z0-9-_]/g, '-');
     
     // Ensure unique name
@@ -342,17 +463,21 @@ router.post('/api/clone', requireAuth, async (req, res) => {
     const projectPath = path.join(projectsDir, finalName);
     fs.mkdirSync(projectPath, { recursive: true });
     
-    // Copy cloned files
-    copyDirectory(cloneDir, projectPath);
+    // Copy files
+    copyDirectory(sourceDir, projectPath);
+    
+    // Clean URL for storage (normalize)
+    const cleanUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
     
     // Save metadata
     const meta = {
-      originalFilename: url.split('/').pop(),
+      originalFilename: parsed.repo,
       uploadedAt: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
-      srcMainPath: srcMainPath ? path.relative(cloneDir, srcMainPath) : null,
+      srcMainPath: srcMainPath ? path.relative(sourceDir, srcMainPath) : null,
       uploadedBy: req.session.user ? req.session.user.username : 'unknown',
-      githubUrl: url
+      githubUrl: cleanUrl,
+      githubBranch: branch
     };
     
     fs.writeFileSync(
@@ -361,26 +486,27 @@ router.post('/api/clone', requireAuth, async (req, res) => {
     );
     
     // Cleanup
-    deleteDirectory(cloneDir);
+    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+    if (fs.existsSync(extractDir)) deleteDirectory(extractDir);
     
     res.json({
       success: true,
       project: {
         name: finalName,
         srcMainPath: meta.srcMainPath,
-        githubUrl: url
+        githubUrl: cleanUrl,
+        branch: branch
       },
       message: srcMainPath 
-        ? `Repository cloned. Found src/main at: ${meta.srcMainPath}`
-        : 'Repository cloned. Note: src/main folder not found.'
+        ? `Repository cloned (${branch}). Found src/main at: ${meta.srcMainPath}`
+        : `Repository cloned (${branch}). Note: src/main folder not found.`
     });
   } catch (err) {
     console.error('Clone error:', err);
     
     // Cleanup on error
-    if (fs.existsSync(cloneDir)) {
-      deleteDirectory(cloneDir);
-    }
+    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+    if (fs.existsSync(extractDir)) deleteDirectory(extractDir);
     
     res.status(500).json({ error: err.message || 'Failed to clone repository' });
   }
@@ -388,11 +514,6 @@ router.post('/api/clone', requireAuth, async (req, res) => {
 
 // Update project from GitHub
 router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
-  // Check if git is installed
-  if (!isGitAvailable()) {
-    return res.status(500).json({ error: 'Git is not installed on this server. Please contact the administrator.' });
-  }
-  
   const projectsDir = path.resolve(__dirname, '..', '..', config.storage.projectsDir);
   const projectPath = path.join(projectsDir, req.params.name);
   const metaPath = path.join(projectPath, '.project-meta.json');
@@ -416,39 +537,85 @@ router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'This project was not cloned from GitHub' });
   }
   
+  const parsed = parseGitHubUrl(meta.githubUrl);
+  if (!parsed) {
+    return res.status(400).json({ error: 'Invalid GitHub URL in project metadata' });
+  }
+  
+  const branch = meta.githubBranch || 'main';
   const tempDir = path.resolve(__dirname, '..', '..', config.storage.tempDir);
-  const cloneDir = path.join(tempDir, uuidv4());
+  const zipPath = path.join(tempDir, `${uuidv4()}.zip`);
+  const extractDir = path.join(tempDir, uuidv4());
   
   try {
-    // Ensure temp directory exists (but NOT cloneDir - git clone creates it)
     fs.mkdirSync(tempDir, { recursive: true });
     
-    // Clone the repository - normalize the URL first
-    const normalizedUrl = meta.githubUrl.trim().replace(/\/+$/, '').replace(/\.git$/, '');
-    const gitUrl = `${normalizedUrl}.git`;
+    // Download zip from GitHub
+    const zipUrl = `https://github.com/${parsed.owner}/${parsed.repo}/archive/refs/heads/${branch}.zip`;
     
-    try {
-      execSync(`git clone --depth 1 "${gitUrl}" "${cloneDir}"`, {
-        timeout: 120000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-    } catch (gitError) {
-      const stderr = gitError.stderr ? gitError.stderr.toString() : '';
-      console.error('Git clone error (update):', stderr || gitError.message);
-      throw new Error('Failed to clone repository. The repository may have been deleted or made private.');
-    }
+    const https = require('https');
     
-    // Remove .git directory
-    const gitDir = path.join(cloneDir, '.git');
-    if (fs.existsSync(gitDir)) {
-      deleteDirectory(gitDir);
+    await new Promise((resolve, reject) => {
+      const downloadZip = (downloadUrl, redirectCount = 0) => {
+        if (redirectCount > 5) {
+          reject(new Error('Too many redirects'));
+          return;
+        }
+        
+        https.get(downloadUrl, (response) => {
+          if (response.statusCode === 301 || response.statusCode === 302) {
+            const redirectUrl = response.headers.location;
+            downloadZip(redirectUrl, redirectCount + 1);
+            return;
+          }
+          
+          if (response.statusCode === 404) {
+            reject(new Error(`Branch "${branch}" not found. The branch may have been deleted.`));
+            return;
+          }
+          
+          if (response.statusCode !== 200) {
+            reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
+            return;
+          }
+          
+          const fileStream = fs.createWriteStream(zipPath);
+          response.pipe(fileStream);
+          
+          fileStream.on('finish', () => {
+            fileStream.close();
+            resolve();
+          });
+          
+          fileStream.on('error', (err) => {
+            fs.unlink(zipPath, () => {});
+            reject(err);
+          });
+        }).on('error', reject);
+      };
+      
+      downloadZip(zipUrl);
+    });
+    
+    // Extract the ZIP
+    fs.mkdirSync(extractDir, { recursive: true });
+    extractAndFindMain(zipPath, extractDir);
+    
+    // GitHub zips have a root folder like "repo-branch", find it
+    const zipEntries = fs.readdirSync(extractDir);
+    let sourceDir = extractDir;
+    if (zipEntries.length === 1) {
+      const singleEntry = path.join(extractDir, zipEntries[0]);
+      if (fs.statSync(singleEntry).isDirectory()) {
+        sourceDir = singleEntry;
+      }
     }
     
     // Fix permissions
-    fixPermissions(cloneDir);
+    fixPermissions(sourceDir);
     
     // Find src/main folder
-    const srcMainPath = findSrcMainFolder(cloneDir);
+    const srcMainPath = findSrcMainFolder(sourceDir);
     
     // Clear project directory (except metadata)
     const entries = fs.readdirSync(projectPath);
@@ -464,29 +631,29 @@ router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
     }
     
     // Copy new files
-    copyDirectory(cloneDir, projectPath);
+    copyDirectory(sourceDir, projectPath);
     
     // Update metadata
     meta.lastUpdated = new Date().toISOString();
-    meta.srcMainPath = srcMainPath ? path.relative(cloneDir, srcMainPath) : null;
+    meta.srcMainPath = srcMainPath ? path.relative(sourceDir, srcMainPath) : null;
     
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
     
     // Cleanup
-    deleteDirectory(cloneDir);
+    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+    if (fs.existsSync(extractDir)) deleteDirectory(extractDir);
     
     res.json({
       success: true,
-      message: 'Project updated from GitHub',
+      message: `Project updated from GitHub (${branch})`,
       lastUpdated: meta.lastUpdated
     });
   } catch (err) {
     console.error('Update error:', err);
     
     // Cleanup on error
-    if (fs.existsSync(cloneDir)) {
-      deleteDirectory(cloneDir);
-    }
+    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+    if (fs.existsSync(extractDir)) deleteDirectory(extractDir);
     
     res.status(500).json({ error: err.message || 'Failed to update from GitHub' });
   }
