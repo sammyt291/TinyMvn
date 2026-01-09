@@ -68,9 +68,7 @@ function extractAndFindMain(zipPath, extractDir) {
 /**
  * Get directory tree structure
  */
-function getDirectoryTree(dir, baseDir = dir, depth = 0, maxDepth = 5) {
-  if (depth > maxDepth) return [];
-  
+function getDirectoryTree(dir, baseDir = dir) {
   const entries = [];
   
   try {
@@ -88,7 +86,7 @@ function getDirectoryTree(dir, baseDir = dir, depth = 0, maxDepth = 5) {
       };
       
       if (item.isDirectory()) {
-        entry.children = getDirectoryTree(fullPath, baseDir, depth + 1, maxDepth);
+        entry.children = getDirectoryTree(fullPath, baseDir);
       }
       
       entries.push(entry);
