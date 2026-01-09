@@ -365,16 +365,17 @@
     <h1>📦 TinyMvn</h1>
     <div class="header-actions">
       <button class="btn btn-secondary" onclick="window.location.href='/repo'">📦 Repository</button>
-      <button class="btn btn-secondary" onclick="window.location.href='/auth/settings'">⚙️ Settings</button>
-      <button class="btn btn-secondary" onclick="logout()">Logout</button>
+      <div id="authButtons">
+        <!-- Will be populated based on login status -->
+      </div>
     </div>
   </header>
   
   <div class="container">
     <div class="grid">
       <div class="sidebar">
-        <!-- Upload Card -->
-        <div class="card" style="margin-bottom: 24px;">
+        <!-- Upload Card (visible only when logged in) -->
+        <div class="card" id="uploadCard" style="margin-bottom: 24px; display: none;">
           <div class="card-header">
             <h2>Upload Project</h2>
           </div>
@@ -468,12 +469,53 @@
     let expandedFolders = new Set();
     let allProjects = [];
     let filteredProjects = [];
+    let isLoggedIn = false;
+    let currentUser = null;
     
     // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkLoginStatus();
       loadProjects();
-      setupUpload();
+      if (isLoggedIn) {
+        setupUpload();
+      }
     });
+    
+    // Check login status
+    async function checkLoginStatus() {
+      try {
+        const response = await fetch('/files/api/me');
+        const data = await response.json();
+        
+        isLoggedIn = data.loggedIn;
+        currentUser = data.user;
+        
+        updateUIForLoginStatus();
+      } catch (err) {
+        console.error('Failed to check login status:', err);
+        isLoggedIn = false;
+        updateUIForLoginStatus();
+      }
+    }
+    
+    // Update UI based on login status
+    function updateUIForLoginStatus() {
+      const authButtons = document.getElementById('authButtons');
+      const uploadCard = document.getElementById('uploadCard');
+      
+      if (isLoggedIn) {
+        authButtons.innerHTML = `
+          <button class="btn btn-secondary" onclick="window.location.href='/auth/settings'">⚙️ Settings</button>
+          <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        `;
+        uploadCard.style.display = 'block';
+      } else {
+        authButtons.innerHTML = `
+          <button class="btn btn-primary" onclick="window.location.href='/auth/login'">Login</button>
+        `;
+        uploadCard.style.display = 'none';
+      }
+    }
     
     // Notification helper
     function showNotification(message, type = 'success') {
@@ -652,10 +694,12 @@
               <span class="user-badge">👤 ${project.uploadedBy || 'unknown'}</span>
             </p>
           </div>
+          ${isLoggedIn ? `
           <div class="project-actions">
             ${project.githubUrl ? `<button class="btn btn-github btn-icon" onclick="event.stopPropagation(); updateFromGithub('${project.name}')" title="Update from GitHub">↻</button>` : ''}
             <button class="btn btn-danger btn-icon" onclick="event.stopPropagation(); deleteProject('${project.name}')">×</button>
           </div>
+          ` : ''}
         </div>
       `).join('');
     }
@@ -897,7 +941,7 @@
     async function logout() {
       try {
         await fetch('/auth/logout', { method: 'POST' });
-        window.location.href = '/auth/login';
+        window.location.reload();
       } catch (err) {
         window.location.href = '/auth/logout';
       }
