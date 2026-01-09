@@ -706,8 +706,11 @@
     
     // Select project
     async function selectProject(name) {
+      // Only clear expanded folders when switching to a different project
+      if (currentProject !== name) {
+        expandedFolders.clear();
+      }
       currentProject = name;
-      expandedFolders.clear();
       
       try {
         const response = await fetch(`/files/api/projects/${name}`);
