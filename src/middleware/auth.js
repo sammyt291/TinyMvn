@@ -1,13 +1,23 @@
 // Authentication middleware
 
+// Paths that are allowed even when password change is required
+const PASSWORD_CHANGE_ALLOWED_PATHS = [
+  '/auth/settings',
+  '/auth/change-password',
+  '/auth/me',
+  '/auth/logout',
+  '/auth/users'
+];
+
+function isPasswordChangeAllowedPath(originalUrl) {
+  const urlPath = originalUrl.split('?')[0]; // Remove query string
+  return PASSWORD_CHANGE_ALLOWED_PATHS.some(path => urlPath.startsWith(path));
+}
+
 function requireAuth(req, res, next) {
   if (req.session && req.session.user) {
-    // Check if user needs to change password (but allow access to settings page)
-    if (req.session.usingDefaultPassword && 
-        !req.path.startsWith('/auth/settings') && 
-        !req.path.startsWith('/auth/change-password') &&
-        !req.path.startsWith('/auth/me') &&
-        !req.path.startsWith('/auth/logout')) {
+    // Check if user needs to change password (but allow access to certain pages)
+    if (req.session.usingDefaultPassword && !isPasswordChangeAllowedPath(req.originalUrl)) {
       // Check if it's an API request
       if (req.xhr || req.headers.accept?.includes('application/json')) {
         return res.status(403).json({ 

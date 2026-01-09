@@ -340,6 +340,24 @@
       border-radius: 4px;
       margin-left: 8px;
     }
+    
+    .github-badge {
+      background: #24292e;
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+    
+    .btn-github {
+      background: #24292e;
+      color: white;
+    }
+    
+    .btn-github:hover {
+      background: #1b1f23;
+    }
   </style>
 </head>
 <body>
@@ -369,6 +387,21 @@
             </div>
             <div class="progress-bar" id="progressBar">
               <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+            
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 20px;">🐙</span>
+                <span style="font-weight: 500; color: #333;">Clone from GitHub</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="githubUrl" placeholder="https://github.com/owner/repo" 
+                       style="flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
+                <button class="btn btn-primary" onclick="cloneFromGithub()" id="cloneBtn">Clone</button>
+              </div>
+              <div style="font-size: 12px; color: #888; margin-top: 6px;">
+                Enter a public GitHub repository URL
+              </div>
             </div>
           </div>
         </div>
@@ -612,6 +645,7 @@
             <h3>
               ${project.name}
               ${project.srcMainPath ? '<span class="src-main-badge">src/main</span>' : ''}
+              ${project.githubUrl ? '<span class="github-badge">🐙 GitHub</span>' : ''}
             </h3>
             <p>
               ${new Date(project.uploadedAt).toLocaleString()}
@@ -619,6 +653,7 @@
             </p>
           </div>
           <div class="project-actions">
+            ${project.githubUrl ? `<button class="btn btn-github btn-icon" onclick="event.stopPropagation(); updateFromGithub('${project.name}')" title="Update from GitHub">↻</button>` : ''}
             <button class="btn btn-danger btn-icon" onclick="event.stopPropagation(); deleteProject('${project.name}')">×</button>
           </div>
         </div>
@@ -772,6 +807,91 @@
         showNotification('Failed to delete project', 'error');
       }
     }
+    
+    // Clone from GitHub
+    async function cloneFromGithub() {
+      const urlInput = document.getElementById('githubUrl');
+      const cloneBtn = document.getElementById('cloneBtn');
+      const url = urlInput.value.trim();
+      
+      if (!url) {
+        showNotification('Please enter a GitHub URL', 'error');
+        return;
+      }
+      
+      // Basic validation
+      if (!url.match(/^https?:\/\/(www\.)?github\.com\/[\w.-]+\/[\w.-]+/)) {
+        showNotification('Invalid GitHub URL. Use format: https://github.com/owner/repo', 'error');
+        return;
+      }
+      
+      cloneBtn.disabled = true;
+      cloneBtn.textContent = 'Cloning...';
+      
+      try {
+        const response = await fetch('/files/api/clone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          showNotification(data.message || 'Repository cloned successfully');
+          urlInput.value = '';
+          loadProjects();
+        } else {
+          showNotification(data.error || 'Failed to clone repository', 'error');
+        }
+      } catch (err) {
+        showNotification('Failed to clone repository: ' + err.message, 'error');
+      } finally {
+        cloneBtn.disabled = false;
+        cloneBtn.textContent = 'Clone';
+      }
+    }
+    
+    // Update project from GitHub
+    async function updateFromGithub(projectName) {
+      if (!confirm(`Update "${projectName}" from GitHub? This will replace all files with the latest from the repository.`)) {
+        return;
+      }
+      
+      showNotification('Updating from GitHub...', 'success');
+      
+      try {
+        const response = await fetch(`/files/api/projects/${projectName}/update`, {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          showNotification(data.message || 'Project updated successfully');
+          loadProjects();
+          if (currentProject === projectName) {
+            selectProject(projectName);
+          }
+        } else {
+          showNotification(data.error || 'Failed to update project', 'error');
+        }
+      } catch (err) {
+        showNotification('Failed to update project: ' + err.message, 'error');
+      }
+    }
+    
+    // Handle Enter key in GitHub URL input
+    document.addEventListener('DOMContentLoaded', () => {
+      const githubInput = document.getElementById('githubUrl');
+      if (githubInput) {
+        githubInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            cloneFromGithub();
+          }
+        });
+      }
+    });
     
     // Logout
     async function logout() {
