@@ -8,6 +8,7 @@ A lightweight Node.js application for hosting Java projects and serving them as 
 - **Auto Certificate Reload**: Automatically reloads when PEM files change (great for Let's Encrypt)
 - **Web UI**: Login, upload, and browse project files
 - **ZIP Upload**: Upload Java projects as ZIP files, auto-detects `src/main` folder
+- **GitHub Integration**: Clone public repositories directly from GitHub URL with one-click updates
 - **Maven Repository**: Serve projects as Maven/Gradle dependencies
 - **File Browser**: View and explore uploaded project files
 - **User Management**: Admin can create, delete, and reset passwords for users
