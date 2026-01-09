@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Files - Java Project Host</title>
+  <title>Files - TinyMvn</title>
   <style>
     * {
       margin: 0;
@@ -186,6 +186,16 @@
       color: #888;
     }
     
+    .project-info .user-badge {
+      display: inline-block;
+      background: #e0e7ff;
+      color: #3730a3;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+    
     .project-actions {
       display: flex;
       gap: 8px;
@@ -334,9 +344,10 @@
 </head>
 <body>
   <header class="header">
-    <h1>☕ Java Project Host</h1>
+    <h1>📦 TinyMvn</h1>
     <div class="header-actions">
       <button class="btn btn-secondary" onclick="window.location.href='/repo'">📦 Repository</button>
+      <button class="btn btn-secondary" onclick="window.location.href='/auth/settings'">⚙️ Settings</button>
       <button class="btn btn-secondary" onclick="logout()">Logout</button>
     </div>
   </header>
@@ -367,6 +378,23 @@
           <div class="card-header">
             <h2>Projects</h2>
             <button class="btn btn-primary btn-icon" onclick="loadProjects()">↻</button>
+          </div>
+          <div class="card-body" style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
+            <input type="text" id="projectSearch" placeholder="🔍 Search projects..." 
+                   style="width: 100%; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; margin-bottom: 8px;"
+                   oninput="filterProjects()">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="font-size: 12px; color: #666;">Sort by:</span>
+              <select id="projectSort" onchange="sortProjects()" 
+                      style="padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; background: white;">
+                <option value="date">Date (newest)</option>
+                <option value="date-asc">Date (oldest)</option>
+                <option value="user">User (A-Z)</option>
+                <option value="user-desc">User (Z-A)</option>
+                <option value="name">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+              </select>
+            </div>
           </div>
           <div class="project-list" id="projectList">
             <div class="empty-state">Loading projects...</div>
@@ -405,6 +433,8 @@
   <script>
     let currentProject = null;
     let expandedFolders = new Set();
+    let allProjects = [];
+    let filteredProjects = [];
     
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
@@ -513,32 +543,86 @@
         const response = await fetch('/files/api/projects');
         const data = await response.json();
         
-        const projectList = document.getElementById('projectList');
-        
-        if (data.projects.length === 0) {
-          projectList.innerHTML = '<div class="empty-state">No projects yet. Upload a ZIP file to get started.</div>';
-          return;
-        }
-        
-        projectList.innerHTML = data.projects.map(project => `
-          <div class="project-item ${currentProject === project.name ? 'active' : ''}" 
-               onclick="selectProject('${project.name}')">
-            <div class="project-info">
-              <h3>
-                ${project.name}
-                ${project.srcMainPath ? '<span class="src-main-badge">src/main</span>' : ''}
-              </h3>
-              <p>${new Date(project.uploadedAt).toLocaleString()}</p>
-            </div>
-            <div class="project-actions">
-              <button class="btn btn-danger btn-icon" onclick="event.stopPropagation(); deleteProject('${project.name}')">×</button>
-            </div>
-          </div>
-        `).join('');
+        allProjects = data.projects || [];
+        sortProjects();
       } catch (err) {
         console.error('Failed to load projects:', err);
         showNotification('Failed to load projects', 'error');
       }
+    }
+    
+    // Sort projects
+    function sortProjects() {
+      const sortBy = document.getElementById('projectSort').value;
+      
+      filteredProjects = [...allProjects];
+      
+      switch (sortBy) {
+        case 'date':
+          filteredProjects.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+          break;
+        case 'date-asc':
+          filteredProjects.sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt));
+          break;
+        case 'user':
+          filteredProjects.sort((a, b) => (a.uploadedBy || '').localeCompare(b.uploadedBy || ''));
+          break;
+        case 'user-desc':
+          filteredProjects.sort((a, b) => (b.uploadedBy || '').localeCompare(a.uploadedBy || ''));
+          break;
+        case 'name':
+          filteredProjects.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+        case 'name-desc':
+          filteredProjects.sort((a, b) => b.name.localeCompare(a.name));
+          break;
+      }
+      
+      filterProjects();
+    }
+    
+    // Filter projects by search
+    function filterProjects() {
+      const searchTerm = document.getElementById('projectSearch').value.toLowerCase().trim();
+      const projectList = document.getElementById('projectList');
+      
+      let projects = filteredProjects;
+      
+      if (searchTerm) {
+        projects = filteredProjects.filter(project => 
+          project.name.toLowerCase().includes(searchTerm) ||
+          (project.uploadedBy || '').toLowerCase().includes(searchTerm) ||
+          (project.originalFilename || '').toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      if (projects.length === 0) {
+        if (allProjects.length === 0) {
+          projectList.innerHTML = '<div class="empty-state">No projects yet. Upload a ZIP file to get started.</div>';
+        } else {
+          projectList.innerHTML = '<div class="empty-state">No projects match your search.</div>';
+        }
+        return;
+      }
+      
+      projectList.innerHTML = projects.map(project => `
+        <div class="project-item ${currentProject === project.name ? 'active' : ''}" 
+             onclick="selectProject('${project.name}')">
+          <div class="project-info">
+            <h3>
+              ${project.name}
+              ${project.srcMainPath ? '<span class="src-main-badge">src/main</span>' : ''}
+            </h3>
+            <p>
+              ${new Date(project.uploadedAt).toLocaleString()}
+              <span class="user-badge">👤 ${project.uploadedBy || 'unknown'}</span>
+            </p>
+          </div>
+          <div class="project-actions">
+            <button class="btn btn-danger btn-icon" onclick="event.stopPropagation(); deleteProject('${project.name}')">×</button>
+          </div>
+        </div>
+      `).join('');
     }
     
     // Select project
@@ -560,7 +644,7 @@
         });
         event.target.closest('.project-item')?.classList.add('active');
         
-        loadProjects(); // Refresh to show active state
+        filterProjects(); // Refresh to show active state
       } catch (err) {
         console.error('Failed to load project:', err);
         showNotification('Failed to load project files', 'error');

@@ -1,6 +1,6 @@
-# Java Project Host
+# TinyMvn
 
-A Node.js application for hosting Java projects and serving them as Maven/Gradle dependencies. No native build required - just `npm install`!
+A lightweight Node.js application for hosting Java projects and serving them as Maven/Gradle dependencies. No native build required - just `npm install`!
 
 ## Features
 
@@ -10,6 +10,10 @@ A Node.js application for hosting Java projects and serving them as Maven/Gradle
 - **ZIP Upload**: Upload Java projects as ZIP files, auto-detects `src/main` folder
 - **Maven Repository**: Serve projects as Maven/Gradle dependencies
 - **File Browser**: View and explore uploaded project files
+- **User Management**: Admin can create, delete, and reset passwords for users
+- **Password Security**: Forces password change when using default credentials
+- **Project Search & Sort**: Search projects by name/user, sort by date/user/name
+- **Project Ownership**: Tracks which user uploaded each project
 
 ## Quick Start
 
@@ -27,6 +31,8 @@ The server will start on `http://localhost:3000` by default.
 
 - **Username**: `admin`
 - **Password**: `admin123`
+
+**Note**: You will be prompted to change the password on first login with default credentials.
 
 ## Configuration
 
@@ -96,7 +102,18 @@ openssl req -x509 -newkey rsa:4096 -keyout certs/server.key -out certs/server.cr
 
 The server automatically reloads certificates when they change (useful for Let's Encrypt auto-renewal).
 
-## Adding Users
+## User Management
+
+### Via Web UI (Recommended)
+
+1. Log in as admin
+2. Go to Settings (⚙️ button in header)
+3. Use the User Management section to:
+   - Add new users
+   - Reset user passwords
+   - Delete users (except admin)
+
+### Via Command Line
 
 Generate a password hash:
 
@@ -179,6 +196,13 @@ dependencies {
 - `GET /auth/login` - Login page
 - `POST /auth/login` - Login handler
 - `GET /auth/logout` - Logout
+- `GET /auth/settings` - Settings page
+- `GET /auth/me` - Get current user info
+- `POST /auth/change-password` - Change password
+- `GET /auth/users` - List users (admin only)
+- `POST /auth/users` - Create user (admin only)
+- `PUT /auth/users/:username/password` - Reset user password (admin only)
+- `DELETE /auth/users/:username` - Delete user (admin only)
 
 ### Files
 - `GET /files` - File manager UI
@@ -213,7 +237,8 @@ dependencies {
 ├── views/
 │   ├── login.html       # Login page
 │   ├── files.html       # File manager
-│   └── repo.html        # Repository browser
+│   ├── repo.html        # Repository browser
+│   └── settings.html    # Settings & user management
 ├── public/              # Static assets
 ├── certs/               # SSL certificates (for HTTPS)
 ├── uploads/             # Temporary uploads

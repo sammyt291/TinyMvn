@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - TinyMvn</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f5f7fa;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .header h1 {
+      color: white;
+      font-size: 20px;
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+    
+    .btn-outline {
+      background: white;
+      border: 1px solid #e5e7eb;
+      color: #333;
+    }
+    
+    .btn-outline:hover {
+      background: #f9fafb;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .card-header h2 {
+      font-size: 16px;
+      color: #333;
+    }
+    
+    .card-body {
+      padding: 20px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: #333;
+      font-size: 14px;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    
+    .alert-warning {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+    }
+    
+    .alert-success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #6ee7b7;
+    }
+    
+    .alert-error {
+      background: #fee2e2;
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+    }
+    
+    .user-list {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .user-item {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .user-item:last-child {
+      border-bottom: none;
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    
+    .user-name {
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .user-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #e0e7ff;
+      color: #3730a3;
+      margin-left: 8px;
+    }
+    
+    .user-badge.default-pass {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    .user-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    
+    .modal-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal {
+      background: white;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 400px;
+      padding: 24px;
+      transform: translateY(20px);
+      transition: transform 0.3s;
+    }
+    
+    .modal-overlay.visible .modal {
+      transform: translateY(0);
+    }
+    
+    .modal-header {
+      margin-bottom: 20px;
+    }
+    
+    .modal-header h3 {
+      font-size: 18px;
+      color: #333;
+    }
+    
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 16px 24px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transform: translateX(400px);
+      transition: transform 0.3s ease;
+      z-index: 1001;
+    }
+    
+    .notification.visible {
+      transform: translateX(0);
+    }
+    
+    .notification.success {
+      background: #10b981;
+    }
+    
+    .notification.error {
+      background: #ef4444;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>⚙️ Settings</h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="window.location.href='/files'">📁 Files</button>
+      <button class="btn btn-secondary" onclick="window.location.href='/repo'">📦 Repository</button>
+      <button class="btn btn-secondary" onclick="logout()">Logout</button>
+    </div>
+  </header>
+  
+  <div class="container">
+    <!-- Force Password Change Alert -->
+    <div id="forceChangeAlert" class="alert alert-warning" style="display: none;">
+      <strong>⚠️ Password Change Required:</strong> You are using the default password. Please change it to secure your account.
+    </div>
+    
+    <!-- Change Password Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>🔐 Change Password</h2>
+      </div>
+      <div class="card-body">
+        <form id="changePasswordForm">
+          <div class="form-group">
+            <label for="currentPassword">Current Password</label>
+            <input type="password" id="currentPassword" name="currentPassword" required placeholder="Enter current password">
+          </div>
+          <div class="form-group">
+            <label for="newPassword">New Password</label>
+            <input type="password" id="newPassword" name="newPassword" required placeholder="Enter new password" minlength="6">
+          </div>
+          <div class="form-group">
+            <label for="confirmPassword">Confirm New Password</label>
+            <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="Confirm new password">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Update Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- User Management Card (Admin Only) -->
+    <div class="card" id="userManagementCard" style="display: none;">
+      <div class="card-header">
+        <h2>👥 User Management</h2>
+        <button class="btn btn-primary btn-sm" onclick="showAddUserModal()">+ Add User</button>
+      </div>
+      <div class="card-body">
+        <div class="user-list" id="userList">
+          <div class="user-item">Loading users...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Add User Modal -->
+  <div class="modal-overlay" id="addUserModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Add New User</h3>
+      </div>
+      <form id="addUserForm">
+        <div class="form-group">
+          <label for="newUsername">Username</label>
+          <input type="text" id="newUsername" name="username" required placeholder="Enter username" pattern="[a-zA-Z0-9_-]+" title="Letters, numbers, underscore and dash only">
+        </div>
+        <div class="form-group">
+          <label for="newUserPassword">Password</label>
+          <input type="password" id="newUserPassword" name="password" required placeholder="Enter password" minlength="6">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline" onclick="hideAddUserModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Reset Password Modal -->
+  <div class="modal-overlay" id="resetPasswordModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Reset Password for <span id="resetUsername"></span></h3>
+      </div>
+      <form id="resetPasswordForm">
+        <input type="hidden" id="resetUsernameInput" name="username">
+        <div class="form-group">
+          <label for="resetNewPassword">New Password</label>
+          <input type="password" id="resetNewPassword" name="password" required placeholder="Enter new password" minlength="6">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline" onclick="hideResetPasswordModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Reset Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <div class="notification" id="notification"></div>
+  
+  <script>
+    let currentUser = null;
+    let users = [];
+    let forcePasswordChange = false;
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadCurrentUser();
+      setupForms();
+    });
+    
+    // Notification helper
+    function showNotification(message, type = 'success') {
+      const notification = document.getElementById('notification');
+      notification.textContent = message;
+      notification.className = `notification ${type} visible`;
+      setTimeout(() => notification.classList.remove('visible'), 4000);
+    }
+    
+    // Load current user info
+    async function loadCurrentUser() {
+      try {
+        const response = await fetch('/auth/me');
+        const data = await response.json();
+        currentUser = data.user;
+        forcePasswordChange = data.forcePasswordChange || false;
+        
+        // Show force change alert
+        if (forcePasswordChange) {
+          document.getElementById('forceChangeAlert').style.display = 'block';
+        }
+        
+        // Show user management for admin
+        if (currentUser.username === 'admin') {
+          document.getElementById('userManagementCard').style.display = 'block';
+          await loadUsers();
+        }
+      } catch (err) {
+        console.error('Failed to load user:', err);
+      }
+    }
+    
+    // Load all users (admin only)
+    async function loadUsers() {
+      try {
+        const response = await fetch('/auth/users');
+        const data = await response.json();
+        users = data.users || [];
+        renderUsers();
+      } catch (err) {
+        console.error('Failed to load users:', err);
+      }
+    }
+    
+    // Render users list
+    function renderUsers() {
+      const userList = document.getElementById('userList');
+      
+      if (users.length === 0) {
+        userList.innerHTML = '<div class="user-item">No users found</div>';
+        return;
+      }
+      
+      userList.innerHTML = users.map(user => `
+        <div class="user-item">
+          <div class="user-info">
+            <div class="user-avatar">${user.username.charAt(0).toUpperCase()}</div>
+            <span class="user-name">
+              ${user.username}
+              ${user.username === 'admin' ? '<span class="user-badge">Admin</span>' : ''}
+              ${user.usingDefaultPassword ? '<span class="user-badge default-pass">Default Password</span>' : ''}
+            </span>
+          </div>
+          <div class="user-actions">
+            <button class="btn btn-outline btn-sm" onclick="showResetPasswordModal('${user.username}')">Reset Password</button>
+            ${user.username !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${user.username}')">Delete</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    // Setup forms
+    function setupForms() {
+      // Change password form
+      document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (newPassword !== confirmPassword) {
+          showNotification('Passwords do not match', 'error');
+          return;
+        }
+        
+        if (newPassword.length < 6) {
+          showNotification('Password must be at least 6 characters', 'error');
+          return;
+        }
+        
+        try {
+          const response = await fetch('/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword, newPassword })
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            showNotification('Password changed successfully');
+            document.getElementById('changePasswordForm').reset();
+            document.getElementById('forceChangeAlert').style.display = 'none';
+            forcePasswordChange = false;
+          } else {
+            showNotification(data.error || 'Failed to change password', 'error');
+          }
+        } catch (err) {
+          showNotification('Error changing password', 'error');
+        }
+      });
+      
+      // Add user form
+      document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const username = document.getElementById('newUsername').value;
+        const password = document.getElementById('newUserPassword').value;
+        
+        try {
+          const response = await fetch('/auth/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            showNotification('User created successfully');
+            hideAddUserModal();
+            document.getElementById('addUserForm').reset();
+            await loadUsers();
+          } else {
+            showNotification(data.error || 'Failed to create user', 'error');
+          }
+        } catch (err) {
+          showNotification('Error creating user', 'error');
+        }
+      });
+      
+      // Reset password form
+      document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const username = document.getElementById('resetUsernameInput').value;
+        const password = document.getElementById('resetNewPassword').value;
+        
+        try {
+          const response = await fetch(`/auth/users/${username}/password`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            showNotification('Password reset successfully');
+            hideResetPasswordModal();
+            document.getElementById('resetPasswordForm').reset();
+            await loadUsers();
+          } else {
+            showNotification(data.error || 'Failed to reset password', 'error');
+          }
+        } catch (err) {
+          showNotification('Error resetting password', 'error');
+        }
+      });
+    }
+    
+    // Modal functions
+    function showAddUserModal() {
+      document.getElementById('addUserModal').classList.add('visible');
+    }
+    
+    function hideAddUserModal() {
+      document.getElementById('addUserModal').classList.remove('visible');
+    }
+    
+    function showResetPasswordModal(username) {
+      document.getElementById('resetUsername').textContent = username;
+      document.getElementById('resetUsernameInput').value = username;
+      document.getElementById('resetPasswordModal').classList.add('visible');
+    }
+    
+    function hideResetPasswordModal() {
+      document.getElementById('resetPasswordModal').classList.remove('visible');
+    }
+    
+    // Delete user
+    async function deleteUser(username) {
+      if (!confirm(`Are you sure you want to delete user "${username}"?`)) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/auth/users/${username}`, {
+          method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          showNotification('User deleted successfully');
+          await loadUsers();
+        } else {
+          showNotification(data.error || 'Failed to delete user', 'error');
+        }
+      } catch (err) {
+        showNotification('Error deleting user', 'error');
+      }
+    }
+    
+    // Logout
+    async function logout() {
+      try {
+        await fetch('/auth/logout', { method: 'POST' });
+        window.location.href = '/auth/login';
+      } catch (err) {
+        window.location.href = '/auth/logout';
+      }
+    }
+    
+    // Close modals on click outside
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.classList.remove('visible');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

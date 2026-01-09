@@ -30,11 +30,36 @@ function findSrcMainFolder(dir) {
 }
 
 /**
+ * Fix permissions recursively on a directory
+ */
+function fixPermissions(dir) {
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      
+      if (entry.isDirectory()) {
+        fs.chmodSync(fullPath, 0o755);
+        fixPermissions(fullPath);
+      } else {
+        fs.chmodSync(fullPath, 0o644);
+      }
+    }
+  } catch (e) {
+    // Ignore chmod errors on systems that don't support it
+  }
+}
+
+/**
  * Extract ZIP file and find src/main folder
  */
 function extractAndFindMain(zipPath, extractDir) {
   const zip = new AdmZip(zipPath);
   zip.extractAllTo(extractDir, true);
+  
+  // Fix permissions on extracted files
+  fixPermissions(extractDir);
   
   return findSrcMainFolder(extractDir);
 }
@@ -89,10 +114,17 @@ function deleteDirectory(dir) {
 }
 
 /**
- * Copy directory recursively
+ * Copy directory recursively with proper permissions
  */
 function copyDirectory(src, dest) {
-  fs.mkdirSync(dest, { recursive: true });
+  fs.mkdirSync(dest, { recursive: true, mode: 0o755 });
+  
+  // Ensure the directory is readable
+  try {
+    fs.chmodSync(dest, 0o755);
+  } catch (e) {
+    // Ignore chmod errors on systems that don't support it
+  }
   
   const entries = fs.readdirSync(src, { withFileTypes: true });
   
@@ -104,6 +136,12 @@ function copyDirectory(src, dest) {
       copyDirectory(srcPath, destPath);
     } else {
       fs.copyFileSync(srcPath, destPath);
+      // Set file permissions to readable (644)
+      try {
+        fs.chmodSync(destPath, 0o644);
+      } catch (e) {
+        // Ignore chmod errors on systems that don't support it
+      }
     }
   }
 }
@@ -127,5 +165,6 @@ module.exports = {
   getDirectoryTree,
   deleteDirectory,
   copyDirectory,
-  formatFileSize
+  formatFileSize,
+  fixPermissions
 };
