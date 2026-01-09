@@ -344,16 +344,29 @@
       setTimeout(() => notification.classList.remove('visible'), 2000);
     }
     
+    // Copy to clipboard helper
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (error) {
+        console.warn('Unable to copy.', error);
+        return false;
+      }
+    }
+    
     // Copy repository URL
-    function copyRepoUrl() {
-      navigator.clipboard.writeText(repositoryUrl);
-      showNotification('Repository URL copied!');
+    async function copyRepoUrl() {
+      if (await copyToClipboard(repositoryUrl)) {
+        showNotification('Repository URL copied!');
+      }
     }
     
     // Copy dependency
-    function copyDependency(text) {
-      navigator.clipboard.writeText(text);
-      showNotification('Dependency copied!');
+    async function copyDependency(text) {
+      if (await copyToClipboard(text)) {
+        showNotification('Dependency copied!');
+      }
     }
     
     // Load artifacts
