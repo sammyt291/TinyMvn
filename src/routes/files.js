@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { requireAuth } = require('../middleware/auth');
-const { extractAndFindMain, getDirectoryTree, deleteDirectory, copyDirectory, formatFileSize, fixPermissions, findSrcMainFolder } = require('../utils/fileUtils');
+const { extractAndFindMain, getDirectoryTree, deleteDirectory, copyDirectory, copyDirectoryWithGitignore, formatFileSize, fixPermissions, findSrcMainFolder } = require('../utils/fileUtils');
 
 // Load config
 const configPath = path.join(__dirname, '..', '..', 'config.json');
@@ -213,8 +213,14 @@ router.post('/api/upload', requireAuth, upload.single('file'), async (req, res) 
     const projectPath = path.join(projectsDir, finalName);
     fs.mkdirSync(projectPath, { recursive: true });
     
-    // Copy extracted files
-    copyDirectory(extractDir, projectPath);
+    // Copy extracted files (respecting .gitignore if present)
+    copyDirectoryWithGitignore(extractDir, projectPath);
+    
+    // Extract version: first try filename, then gradle.properties
+    let extractedVersion = extractVersionFromFilename(uploadedFile.originalname);
+    if (!extractedVersion) {
+      extractedVersion = extractVersionFromGradleProperties(extractDir);
+    }
     
     // Save metadata
     const meta = {
@@ -222,7 +228,8 @@ router.post('/api/upload', requireAuth, upload.single('file'), async (req, res) 
       uploadedAt: new Date().toISOString(),
       srcMainPath: srcMainPath ? path.relative(extractDir, srcMainPath) : null,
       size: uploadedFile.size,
-      uploadedBy: req.session.user ? req.session.user.username : 'unknown'
+      uploadedBy: req.session.user ? req.session.user.username : 'unknown',
+      version: extractedVersion || null
     };
     
     fs.writeFileSync(
@@ -266,6 +273,121 @@ function parseGitHubUrl(url) {
   const match = url.match(/github\.com\/([\w.-]+)\/([\w.-]+)/);
   if (!match) return null;
   return { owner: match[1], repo: match[2] };
+}
+
+// Extract version from filename (e.g., "project-v1.2.3.zip" or "project-1.2.3.zip")
+function extractVersionFromFilename(filename) {
+  // Remove extension
+  const baseName = filename.replace(/\.(zip|tar\.gz|tgz)$/i, '');
+  
+  // Try to match version patterns like v1.2.3, 1.2.3, v1.2, 1.2
+  const patterns = [
+    /[-_]v?(\d+\.\d+\.\d+)$/i,        // project-v1.2.3 or project-1.2.3
+    /[-_]v?(\d+\.\d+)$/i,              // project-v1.2 or project-1.2
+    /v(\d+\.\d+\.\d+)/i,               // contains v1.2.3 anywhere
+    /v(\d+\.\d+)/i,                    // contains v1.2 anywhere
+    /(\d+\.\d+\.\d+)/,                 // contains 1.2.3 anywhere
+  ];
+  
+  for (const pattern of patterns) {
+    const match = baseName.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  
+  return null;
+}
+
+// Find gradle.properties file recursively and extract version
+function extractVersionFromGradleProperties(dir) {
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      
+      if (entry.isFile() && entry.name === 'gradle.properties') {
+        // Found gradle.properties, parse it
+        const content = fs.readFileSync(fullPath, 'utf8');
+        const match = content.match(/^version\s*=\s*(.+)$/m);
+        if (match) {
+          const version = match[1].trim();
+          // Validate it looks like a version (x.y.z or x.y)
+          if (/^\d+\.\d+(\.\d+)?(-[\w.]+)?$/.test(version)) {
+            return version;
+          }
+        }
+      } else if (entry.isDirectory() && !entry.name.startsWith('.')) {
+        // Recursively search in subdirectories
+        const found = extractVersionFromGradleProperties(fullPath);
+        if (found) return found;
+      }
+    }
+  } catch (e) {
+    // Ignore errors reading directories
+  }
+  
+  return null;
+}
+
+// Fetch latest version tag from GitHub
+async function fetchGitHubVersion(owner, repo) {
+  const https = require('https');
+  
+  return new Promise((resolve) => {
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/tags?per_page=100`;
+    
+    const options = {
+      headers: {
+        'User-Agent': 'TinyMvn',
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    };
+    
+    https.get(apiUrl, options, (response) => {
+      let data = '';
+      response.on('data', chunk => data += chunk);
+      response.on('end', () => {
+        if (response.statusCode !== 200) {
+          resolve(null);
+          return;
+        }
+        
+        try {
+          const tags = JSON.parse(data);
+          
+          // Find tags matching vX.Y.Z or X.Y.Z pattern
+          const versionTags = tags
+            .map(t => t.name)
+            .filter(name => /^v?\d+\.\d+(\.\d+)?$/.test(name))
+            .map(name => ({
+              original: name,
+              version: name.replace(/^v/, '')
+            }))
+            .sort((a, b) => {
+              // Sort by semantic version (descending)
+              const aParts = a.version.split('.').map(Number);
+              const bParts = b.version.split('.').map(Number);
+              for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+                const aVal = aParts[i] || 0;
+                const bVal = bParts[i] || 0;
+                if (aVal !== bVal) return bVal - aVal;
+              }
+              return 0;
+            });
+          
+          if (versionTags.length > 0) {
+            resolve(versionTags[0].version);
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    }).on('error', () => resolve(null));
+  });
 }
 
 // Fetch branches from GitHub API
@@ -463,11 +585,17 @@ router.post('/api/clone', requireAuth, async (req, res) => {
     const projectPath = path.join(projectsDir, finalName);
     fs.mkdirSync(projectPath, { recursive: true });
     
-    // Copy files
-    copyDirectory(sourceDir, projectPath);
+    // Copy files (respecting .gitignore if present)
+    copyDirectoryWithGitignore(sourceDir, projectPath);
     
     // Clean URL for storage (normalize)
     const cleanUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
+    
+    // Fetch version: first try GitHub tags, then gradle.properties
+    let detectedVersion = await fetchGitHubVersion(parsed.owner, parsed.repo);
+    if (!detectedVersion) {
+      detectedVersion = extractVersionFromGradleProperties(sourceDir);
+    }
     
     // Save metadata
     const meta = {
@@ -477,7 +605,8 @@ router.post('/api/clone', requireAuth, async (req, res) => {
       srcMainPath: srcMainPath ? path.relative(sourceDir, srcMainPath) : null,
       uploadedBy: req.session.user ? req.session.user.username : 'unknown',
       githubUrl: cleanUrl,
-      githubBranch: branch
+      githubBranch: branch,
+      version: detectedVersion || null
     };
     
     fs.writeFileSync(
@@ -630,12 +759,19 @@ router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
       }
     }
     
-    // Copy new files
-    copyDirectory(sourceDir, projectPath);
+    // Copy new files (respecting .gitignore if present)
+    copyDirectoryWithGitignore(sourceDir, projectPath);
+    
+    // Fetch latest version: first try GitHub tags, then gradle.properties
+    let detectedVersion = await fetchGitHubVersion(parsed.owner, parsed.repo);
+    if (!detectedVersion) {
+      detectedVersion = extractVersionFromGradleProperties(sourceDir);
+    }
     
     // Update metadata
     meta.lastUpdated = new Date().toISOString();
     meta.srcMainPath = srcMainPath ? path.relative(sourceDir, srcMainPath) : null;
+    meta.version = detectedVersion || meta.version || null;
     
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
     
