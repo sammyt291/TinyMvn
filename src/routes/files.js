@@ -216,8 +216,11 @@ router.post('/api/upload', requireAuth, upload.single('file'), async (req, res) 
     // Copy extracted files (respecting .gitignore if present)
     copyDirectoryWithGitignore(extractDir, projectPath);
     
-    // Extract version from filename
-    const extractedVersion = extractVersionFromFilename(uploadedFile.originalname);
+    // Extract version: first try filename, then gradle.properties
+    let extractedVersion = extractVersionFromFilename(uploadedFile.originalname);
+    if (!extractedVersion) {
+      extractedVersion = extractVersionFromGradleProperties(extractDir);
+    }
     
     // Save metadata
     const meta = {
@@ -291,6 +294,38 @@ function extractVersionFromFilename(filename) {
     if (match) {
       return match[1];
     }
+  }
+  
+  return null;
+}
+
+// Find gradle.properties file recursively and extract version
+function extractVersionFromGradleProperties(dir) {
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      
+      if (entry.isFile() && entry.name === 'gradle.properties') {
+        // Found gradle.properties, parse it
+        const content = fs.readFileSync(fullPath, 'utf8');
+        const match = content.match(/^version\s*=\s*(.+)$/m);
+        if (match) {
+          const version = match[1].trim();
+          // Validate it looks like a version (x.y.z or x.y)
+          if (/^\d+\.\d+(\.\d+)?(-[\w.]+)?$/.test(version)) {
+            return version;
+          }
+        }
+      } else if (entry.isDirectory() && !entry.name.startsWith('.')) {
+        // Recursively search in subdirectories
+        const found = extractVersionFromGradleProperties(fullPath);
+        if (found) return found;
+      }
+    }
+  } catch (e) {
+    // Ignore errors reading directories
   }
   
   return null;
@@ -556,8 +591,11 @@ router.post('/api/clone', requireAuth, async (req, res) => {
     // Clean URL for storage (normalize)
     const cleanUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
     
-    // Fetch version from GitHub tags
-    const githubVersion = await fetchGitHubVersion(parsed.owner, parsed.repo);
+    // Fetch version: first try GitHub tags, then gradle.properties
+    let detectedVersion = await fetchGitHubVersion(parsed.owner, parsed.repo);
+    if (!detectedVersion) {
+      detectedVersion = extractVersionFromGradleProperties(sourceDir);
+    }
     
     // Save metadata
     const meta = {
@@ -568,7 +606,7 @@ router.post('/api/clone', requireAuth, async (req, res) => {
       uploadedBy: req.session.user ? req.session.user.username : 'unknown',
       githubUrl: cleanUrl,
       githubBranch: branch,
-      version: githubVersion || null
+      version: detectedVersion || null
     };
     
     fs.writeFileSync(
@@ -724,13 +762,16 @@ router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
     // Copy new files (respecting .gitignore if present)
     copyDirectoryWithGitignore(sourceDir, projectPath);
     
-    // Fetch latest version from GitHub tags
-    const githubVersion = await fetchGitHubVersion(parsed.owner, parsed.repo);
+    // Fetch latest version: first try GitHub tags, then gradle.properties
+    let detectedVersion = await fetchGitHubVersion(parsed.owner, parsed.repo);
+    if (!detectedVersion) {
+      detectedVersion = extractVersionFromGradleProperties(sourceDir);
+    }
     
     // Update metadata
     meta.lastUpdated = new Date().toISOString();
     meta.srcMainPath = srcMainPath ? path.relative(sourceDir, srcMainPath) : null;
-    meta.version = githubVersion || meta.version || null;
+    meta.version = detectedVersion || meta.version || null;
     
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
     
