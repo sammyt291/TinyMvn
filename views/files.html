@@ -350,6 +350,15 @@
       margin-left: 8px;
     }
     
+    .branch-badge {
+      background: #6e40c9;
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 4px;
+    }
+    
     .btn-github {
       background: #24292e;
       color: white;
@@ -395,12 +404,25 @@
                 <span style="font-size: 20px;">🐙</span>
                 <span style="font-weight: 500; color: #333;">Clone from GitHub</span>
               </div>
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 8px;" id="githubUrlRow">
                 <input type="text" id="githubUrl" placeholder="https://github.com/owner/repo" 
                        style="flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
-                <button class="btn btn-primary" onclick="cloneFromGithub()" id="cloneBtn">Clone</button>
+                <button class="btn btn-primary" onclick="fetchBranches()" id="fetchBranchesBtn">Fetch Branches</button>
               </div>
-              <div style="font-size: 12px; color: #888; margin-top: 6px;">
+              <div id="branchSelector" style="display: none; margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-size: 13px; color: #666;" id="repoLabel">owner/repo</span>
+                  <button onclick="cancelBranchSelect()" style="background: none; border: none; cursor: pointer; font-size: 16px; color: #888;">✕</button>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <select id="branchSelect" style="flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white;">
+                    <option value="">Loading branches...</option>
+                  </select>
+                  <button class="btn btn-primary" onclick="cloneFromGithub()" id="cloneBtn">Clone</button>
+                  <button class="btn btn-secondary" style="background: #e5e7eb; color: #666;" onclick="cancelBranchSelect()">Cancel</button>
+                </div>
+              </div>
+              <div style="font-size: 12px; color: #888; margin-top: 6px;" id="githubHint">
                 Enter a public GitHub repository URL
               </div>
             </div>
@@ -688,6 +710,7 @@
               ${project.name}
               ${project.srcMainPath ? '<span class="src-main-badge">src/main</span>' : ''}
               ${project.githubUrl ? '<span class="github-badge">🐙 GitHub</span>' : ''}
+              ${project.githubBranch ? `<span class="branch-badge">${project.githubBranch}</span>` : ''}
             </h3>
             <p>
               ${new Date(project.uploadedAt).toLocaleString()}
@@ -696,7 +719,7 @@
           </div>
           ${isLoggedIn ? `
           <div class="project-actions">
-            ${project.githubUrl ? `<button class="btn btn-github btn-icon" onclick="event.stopPropagation(); updateFromGithub('${project.name}')" title="Update from GitHub">↻</button>` : ''}
+            ${project.githubUrl ? `<button class="btn btn-github btn-icon" onclick="event.stopPropagation(); updateFromGithub('${project.name}')" title="Update from GitHub (${project.githubBranch || 'main'})">↻</button>` : ''}
             <button class="btn btn-danger btn-icon" onclick="event.stopPropagation(); deleteProject('${project.name}')">×</button>
           </div>
           ` : ''}
@@ -855,10 +878,12 @@
       }
     }
     
-    // Clone from GitHub
-    async function cloneFromGithub() {
+    // Fetch branches from GitHub
+    let selectedGithubUrl = '';
+    
+    async function fetchBranches() {
       const urlInput = document.getElementById('githubUrl');
-      const cloneBtn = document.getElementById('cloneBtn');
+      const fetchBtn = document.getElementById('fetchBranchesBtn');
       const url = urlInput.value.trim();
       
       if (!url) {
@@ -872,11 +897,11 @@
         return;
       }
       
-      cloneBtn.disabled = true;
-      cloneBtn.textContent = 'Cloning...';
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = 'Loading...';
       
       try {
-        const response = await fetch('/files/api/clone', {
+        const response = await fetch('/files/api/github/branches', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url })
@@ -885,8 +910,78 @@
         const data = await response.json();
         
         if (response.ok) {
+          selectedGithubUrl = url;
+          showBranchSelector(data);
+        } else {
+          showNotification(data.error || 'Failed to fetch branches', 'error');
+        }
+      } catch (err) {
+        showNotification('Failed to fetch branches: ' + err.message, 'error');
+      } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = 'Fetch Branches';
+      }
+    }
+    
+    function showBranchSelector(data) {
+      const branchSelector = document.getElementById('branchSelector');
+      const branchSelect = document.getElementById('branchSelect');
+      const repoLabel = document.getElementById('repoLabel');
+      const urlRow = document.getElementById('githubUrlRow');
+      const hint = document.getElementById('githubHint');
+      
+      // Update repo label
+      repoLabel.textContent = `${data.owner}/${data.repo}`;
+      
+      // Populate branch dropdown
+      branchSelect.innerHTML = data.branches.map(branch => 
+        `<option value="${branch}" ${branch === data.defaultBranch ? 'selected' : ''}>${branch}${branch === data.defaultBranch ? ' (default)' : ''}</option>`
+      ).join('');
+      
+      // Show branch selector, hide URL row
+      urlRow.style.display = 'none';
+      branchSelector.style.display = 'block';
+      hint.style.display = 'none';
+    }
+    
+    function cancelBranchSelect() {
+      const branchSelector = document.getElementById('branchSelector');
+      const urlRow = document.getElementById('githubUrlRow');
+      const hint = document.getElementById('githubHint');
+      
+      branchSelector.style.display = 'none';
+      urlRow.style.display = 'flex';
+      hint.style.display = 'block';
+      selectedGithubUrl = '';
+    }
+    
+    // Clone from GitHub
+    async function cloneFromGithub() {
+      const cloneBtn = document.getElementById('cloneBtn');
+      const branchSelect = document.getElementById('branchSelect');
+      const branch = branchSelect.value;
+      
+      if (!selectedGithubUrl || !branch) {
+        showNotification('Please select a branch', 'error');
+        return;
+      }
+      
+      cloneBtn.disabled = true;
+      cloneBtn.textContent = 'Cloning...';
+      
+      try {
+        const response = await fetch('/files/api/clone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: selectedGithubUrl, branch })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
           showNotification(data.message || 'Repository cloned successfully');
-          urlInput.value = '';
+          document.getElementById('githubUrl').value = '';
+          cancelBranchSelect();
           loadProjects();
         } else {
           showNotification(data.error || 'Failed to clone repository', 'error');
@@ -934,7 +1029,7 @@
       if (githubInput) {
         githubInput.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') {
-            cloneFromGithub();
+            fetchBranches();
           }
         });
       }
