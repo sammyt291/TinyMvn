@@ -76,7 +76,8 @@ router.get('/api/projects', requireAuth, (req, res) => {
           name: entry.name,
           uploadedAt: meta.uploadedAt || stats.birthtime,
           srcMainPath: meta.srcMainPath || null,
-          originalFilename: meta.originalFilename || entry.name
+          originalFilename: meta.originalFilename || entry.name,
+          uploadedBy: meta.uploadedBy || 'unknown'
         };
       })
       .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
@@ -205,7 +206,8 @@ router.post('/api/upload', requireAuth, upload.single('file'), async (req, res) 
       originalFilename: uploadedFile.originalname,
       uploadedAt: new Date().toISOString(),
       srcMainPath: srcMainPath ? path.relative(extractDir, srcMainPath) : null,
-      size: uploadedFile.size
+      size: uploadedFile.size,
+      uploadedBy: req.session.user ? req.session.user.username : 'unknown'
     };
     
     fs.writeFileSync(
