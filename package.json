@@ -1,0 +1,27 @@
+{
+  "name": "java-project-host",
+  "version": "1.0.0",
+  "description": "Node.js app to host Java projects and serve them as dependencies",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "keywords": [
+    "java",
+    "maven",
+    "repository",
+    "hosting"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "bcryptjs": "^2.4.3",
+    "chokidar": "^3.5.3",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "multer": "^2.0.2",
+    "uuid": "^9.0.0"
+  }
+}

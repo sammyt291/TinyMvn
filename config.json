@@ -1,0 +1,32 @@
+{
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0",
+    "protocol": "http"
+  },
+  "https": {
+    "keyPath": "./certs/server.key",
+    "certPath": "./certs/server.crt",
+    "watchCerts": true
+  },
+  "auth": {
+    "sessionSecret": "change-this-to-a-secure-random-string",
+    "users": [
+      {
+        "username": "admin",
+        "password": "$2a$10$rQZ8K.5FZy5zNq5F5H5H5OJvZK5zNq5F5H5H5OJvZK5zNq5F5H5H5O"
+      }
+    ],
+    "defaultPassword": "admin123"
+  },
+  "storage": {
+    "uploadDir": "./uploads",
+    "projectsDir": "./projects",
+    "tempDir": "./temp"
+  },
+  "repository": {
+    "basePath": "/repo",
+    "groupId": "com.example",
+    "artifactId": "project"
+  }
+}
