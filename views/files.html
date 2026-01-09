@@ -76,13 +76,13 @@
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: 24px;
+      padding: 12px;
     }
     
     .grid {
       display: grid;
-      grid-template-columns: 350px 1fr;
-      gap: 24px;
+      grid-template-columns: 450px 1fr;
+      gap: 12px;
     }
     
     @media (max-width: 900px) {
@@ -99,7 +99,7 @@
     }
     
     .card-header {
-      padding: 16px 20px;
+      padding: 8px 10px;
       border-bottom: 1px solid #e5e7eb;
       display: flex;
       justify-content: space-between;
@@ -112,14 +112,14 @@
     }
     
     .card-body {
-      padding: 20px;
+      padding: 10px;
     }
     
     /* Upload area */
     .upload-area {
       border: 2px dashed #d1d5db;
       border-radius: 12px;
-      padding: 40px 20px;
+      padding: 20px 10px;
       text-align: center;
       transition: all 0.3s;
       cursor: pointer;
@@ -137,12 +137,12 @@
     
     .upload-icon {
       font-size: 48px;
-      margin-bottom: 16px;
+      margin-bottom: 8px;
     }
     
     .upload-text {
       color: #666;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
     
     .upload-hint {
@@ -157,7 +157,7 @@
     }
     
     .project-item {
-      padding: 12px 16px;
+      padding: 6px 8px;
       border-bottom: 1px solid #f0f0f0;
       cursor: pointer;
       transition: background 0.2s;
@@ -207,7 +207,7 @@
     }
     
     .empty-state {
-      padding: 40px 20px;
+      padding: 20px 10px;
       text-align: center;
       color: #888;
     }
@@ -244,7 +244,7 @@
     }
     
     .tree-children {
-      margin-left: 20px;
+      margin-left: 10px;
     }
     
     .tree-toggle {
@@ -262,14 +262,14 @@
     
     .file-viewer-header {
       background: #2d2d2d;
-      padding: 12px 16px;
+      padding: 6px 8px;
       color: #ccc;
       font-size: 13px;
       font-family: 'SF Mono', Monaco, Consolas, monospace;
     }
     
     .file-viewer-content {
-      padding: 16px;
+      padding: 8px;
       max-height: 500px;
       overflow: auto;
     }
@@ -290,7 +290,7 @@
       background: #e5e7eb;
       border-radius: 2px;
       overflow: hidden;
-      margin-top: 16px;
+      margin-top: 8px;
       display: none;
     }
     
@@ -384,7 +384,7 @@
     <div class="grid">
       <div class="sidebar">
         <!-- Upload Card (visible only when logged in) -->
-        <div class="card" id="uploadCard" style="margin-bottom: 24px; display: none;">
+        <div class="card" id="uploadCard" style="margin-bottom: 12px; display: none;">
           <div class="card-header">
             <h2>Upload Project</h2>
           </div>
@@ -399,22 +399,22 @@
               <div class="progress-bar-fill" id="progressFill"></div>
             </div>
             
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-              <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+              <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px;">
                 <span style="font-size: 20px;">🐙</span>
                 <span style="font-weight: 500; color: #333;">Clone from GitHub</span>
               </div>
-              <div style="display: flex; gap: 8px;" id="githubUrlRow">
+              <div style="display: flex; gap: 4px;" id="githubUrlRow">
                 <input type="text" id="githubUrl" placeholder="https://github.com/owner/repo" 
                        style="flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
                 <button class="btn btn-primary" onclick="fetchBranches()" id="fetchBranchesBtn">Fetch Branches</button>
               </div>
-              <div id="branchSelector" style="display: none; margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div id="branchSelector" style="display: none; margin-top: 6px; padding: 6px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                   <span style="font-size: 13px; color: #666;" id="repoLabel">owner/repo</span>
                   <button onclick="cancelBranchSelect()" style="background: none; border: none; cursor: pointer; font-size: 16px; color: #888;">✕</button>
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="display: flex; gap: 4px; align-items: center;">
                   <select id="branchSelect" style="flex: 1; min-width: 0; max-width: 100%; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white;">
                     <option value="">Loading branches...</option>
                   </select>
@@ -422,7 +422,7 @@
                   <button class="btn btn-secondary" style="background: #e5e7eb; color: #666;" onclick="cancelBranchSelect()">Cancel</button>
                 </div>
               </div>
-              <div style="font-size: 12px; color: #888; margin-top: 6px;" id="githubHint">
+              <div style="font-size: 12px; color: #888; margin-top: 3px;" id="githubHint">
                 Enter a public GitHub repository URL
               </div>
             </div>
@@ -435,11 +435,11 @@
             <h2>Projects</h2>
             <button class="btn btn-primary btn-icon" onclick="loadProjects()">↻</button>
           </div>
-          <div class="card-body" style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
+          <div class="card-body" style="padding: 6px 8px; border-bottom: 1px solid #e5e7eb;">
             <input type="text" id="projectSearch" placeholder="🔍 Search projects..." 
-                   style="width: 100%; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; margin-bottom: 8px;"
+                   style="width: 100%; padding: 5px 7px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; margin-bottom: 4px;"
                    oninput="filterProjects()">
-            <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="display: flex; gap: 4px; align-items: center;">
               <span style="font-size: 12px; color: #666;">Sort by:</span>
               <select id="projectSort" onchange="sortProjects()" 
                       style="padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; background: white;">
@@ -460,7 +460,7 @@
       
       <div class="main-content">
         <!-- File Browser Card -->
-        <div class="card" style="margin-bottom: 24px;">
+        <div class="card" style="margin-bottom: 12px;">
           <div class="card-header">
             <h2 id="fileTreeTitle">Select a Project</h2>
           </div>

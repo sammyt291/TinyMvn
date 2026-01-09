@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
+const ignore = require('ignore');
 
 /**
  * Find src/main folder in extracted directory
@@ -114,9 +115,34 @@ function deleteDirectory(dir) {
 }
 
 /**
- * Copy directory recursively with proper permissions
+ * Load and parse .gitignore file from a directory
+ * Returns an ignore instance if .gitignore exists, null otherwise
  */
-function copyDirectory(src, dest) {
+function loadGitignore(dir) {
+  const gitignorePath = path.join(dir, '.gitignore');
+  
+  if (!fs.existsSync(gitignorePath)) {
+    return null;
+  }
+  
+  try {
+    const content = fs.readFileSync(gitignorePath, 'utf8');
+    const ig = ignore();
+    ig.add(content);
+    return ig;
+  } catch (e) {
+    console.error('Error reading .gitignore:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Copy directory recursively with proper permissions
+ * Optionally respects .gitignore patterns
+ */
+function copyDirectory(src, dest, options = {}) {
+  const { ig = null, baseDir = src } = options;
+  
   fs.mkdirSync(dest, { recursive: true, mode: 0o755 });
   
   // Ensure the directory is readable
@@ -132,8 +158,20 @@ function copyDirectory(src, dest) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     
+    // Calculate relative path from base directory for gitignore matching
+    const relativePath = path.relative(baseDir, srcPath);
+    
+    // Check if this path should be ignored (skip .gitignore file itself - we keep it)
+    if (ig && entry.name !== '.gitignore') {
+      // For directories, append / to match gitignore patterns correctly
+      const pathToCheck = entry.isDirectory() ? relativePath + '/' : relativePath;
+      if (ig.ignores(pathToCheck)) {
+        continue; // Skip this file/directory
+      }
+    }
+    
     if (entry.isDirectory()) {
-      copyDirectory(srcPath, destPath);
+      copyDirectory(srcPath, destPath, { ig, baseDir });
     } else {
       fs.copyFileSync(srcPath, destPath);
       // Set file permissions to readable (644)
@@ -144,6 +182,15 @@ function copyDirectory(src, dest) {
       }
     }
   }
+}
+
+/**
+ * Copy directory with gitignore support
+ * Automatically loads .gitignore from source directory if present
+ */
+function copyDirectoryWithGitignore(src, dest) {
+  const ig = loadGitignore(src);
+  copyDirectory(src, dest, { ig, baseDir: src });
 }
 
 /**
@@ -165,6 +212,8 @@ module.exports = {
   getDirectoryTree,
   deleteDirectory,
   copyDirectory,
+  copyDirectoryWithGitignore,
+  loadGitignore,
   formatFileSize,
   fixPermissions
 };

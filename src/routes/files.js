@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { requireAuth } = require('../middleware/auth');
-const { extractAndFindMain, getDirectoryTree, deleteDirectory, copyDirectory, formatFileSize, fixPermissions, findSrcMainFolder } = require('../utils/fileUtils');
+const { extractAndFindMain, getDirectoryTree, deleteDirectory, copyDirectory, copyDirectoryWithGitignore, formatFileSize, fixPermissions, findSrcMainFolder } = require('../utils/fileUtils');
 
 // Load config
 const configPath = path.join(__dirname, '..', '..', 'config.json');
@@ -213,8 +213,8 @@ router.post('/api/upload', requireAuth, upload.single('file'), async (req, res) 
     const projectPath = path.join(projectsDir, finalName);
     fs.mkdirSync(projectPath, { recursive: true });
     
-    // Copy extracted files
-    copyDirectory(extractDir, projectPath);
+    // Copy extracted files (respecting .gitignore if present)
+    copyDirectoryWithGitignore(extractDir, projectPath);
     
     // Save metadata
     const meta = {
@@ -463,8 +463,8 @@ router.post('/api/clone', requireAuth, async (req, res) => {
     const projectPath = path.join(projectsDir, finalName);
     fs.mkdirSync(projectPath, { recursive: true });
     
-    // Copy files
-    copyDirectory(sourceDir, projectPath);
+    // Copy files (respecting .gitignore if present)
+    copyDirectoryWithGitignore(sourceDir, projectPath);
     
     // Clean URL for storage (normalize)
     const cleanUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
@@ -630,8 +630,8 @@ router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
       }
     }
     
-    // Copy new files
-    copyDirectory(sourceDir, projectPath);
+    // Copy new files (respecting .gitignore if present)
+    copyDirectoryWithGitignore(sourceDir, projectPath);
     
     // Update metadata
     meta.lastUpdated = new Date().toISOString();
