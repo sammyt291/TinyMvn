@@ -8,6 +8,7 @@ A lightweight Node.js application for hosting Java projects and serving them as 
 - **Auto Certificate Reload**: Automatically reloads when PEM files change (great for Let's Encrypt)
 - **Web UI**: Login, upload, and browse project files
 - **ZIP Upload**: Upload Java projects as ZIP files, auto-detects `src/main` folder
+- **GitHub Integration**: Clone public repositories directly from GitHub URL with one-click updates
 - **Maven Repository**: Serve projects as Maven/Gradle dependencies
 - **File Browser**: View and explore uploaded project files
 - **User Management**: Admin can create, delete, and reset passwords for users
@@ -138,10 +139,18 @@ Add the user to `config.json`:
 
 ## Uploading Projects
 
+### From ZIP File
 1. Log in at `http://localhost:3000`
 2. Go to Files page
 3. Drop or select a ZIP file containing your Java project
 4. The app automatically finds the `src/main` folder
+
+### From GitHub
+1. Log in at `http://localhost:3000`
+2. Go to Files page
+3. Enter a public GitHub repository URL (e.g., `https://github.com/owner/repo`)
+4. Click "Clone" to import the repository
+5. Use the refresh button (↻) on GitHub projects to pull the latest changes
 
 ### Expected ZIP Structure
 
@@ -211,6 +220,8 @@ dependencies {
 - `GET /files/api/projects/:name/file?path=...` - View file content
 - `POST /files/api/upload` - Upload ZIP file
 - `DELETE /files/api/projects/:name` - Delete project
+- `POST /files/api/clone` - Clone from GitHub URL
+- `POST /files/api/projects/:name/update` - Update project from GitHub
 
 ### Repository
 - `GET /repo` - Repository browser UI

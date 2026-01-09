@@ -14,7 +14,7 @@
     "users": [
       {
         "username": "admin",
-        "password": "$2a$10$rQZ8K.5FZy5zNq5F5H5H5OJvZK5zNq5F5H5H5OJvZK5zNq5F5H5H5O"
+        "password": "$2a$10$FBai0rGJM621k4HcoKEHZuPkZAH3qNBevly554zcIdVyFdpHpCfmO"
       }
     ],
     "defaultPassword": "admin123"
