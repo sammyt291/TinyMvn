@@ -673,11 +673,11 @@
         document.getElementById('fileTree').innerHTML = renderTree(data.files);
         document.getElementById('fileViewerCard').style.display = 'none';
         
-        // Update active state in project list
-        document.querySelectorAll('.project-item').forEach(item => {
-          item.classList.remove('active');
-        });
-        event.target.closest('.project-item')?.classList.add('active');
+    // Update active state in project list
+    document.querySelectorAll('.project-item').forEach(item => {
+      item.classList.remove('active');
+    });
+    event?.target?.closest('.project-item')?.classList.add('active');
         
         filterProjects(); // Refresh to show active state
       } catch (err) {
@@ -771,7 +771,7 @@
         document.querySelectorAll('.tree-item').forEach(item => {
           item.classList.remove('selected');
         });
-        event.target.closest('.tree-item')?.classList.add('selected');
+        event?.target?.closest('.tree-item')?.classList.add('selected');
       } catch (err) {
         console.error('Failed to view file:', err);
         showNotification('Failed to load file', 'error');
