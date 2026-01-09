@@ -260,12 +260,27 @@ router.post('/api/upload', requireAuth, upload.single('file'), async (req, res) 
   }
 });
 
+// Helper function to check if git is available
+function isGitAvailable() {
+  try {
+    execSync('git --version', { stdio: ['pipe', 'pipe', 'pipe'] });
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 // Clone from GitHub URL
 router.post('/api/clone', requireAuth, async (req, res) => {
   let { url, projectName } = req.body;
   
   if (!url) {
     return res.status(400).json({ error: 'GitHub URL is required' });
+  }
+  
+  // Check if git is installed
+  if (!isGitAvailable()) {
+    return res.status(500).json({ error: 'Git is not installed on this server. Please contact the administrator or upload a ZIP file instead.' });
   }
   
   // Clean up URL - trim whitespace and trailing slashes
@@ -296,7 +311,7 @@ router.post('/api/clone', requireAuth, async (req, res) => {
     } catch (gitError) {
       const stderr = gitError.stderr ? gitError.stderr.toString() : '';
       console.error('Git clone error:', stderr || gitError.message);
-      throw new Error('Failed to clone repository. Make sure the URL is correct and the repository is public. ' + (stderr || ''));
+      throw new Error('Failed to clone repository. Make sure the URL is correct and the repository is public.');
     }
     
     // Remove .git directory to save space
@@ -373,6 +388,11 @@ router.post('/api/clone', requireAuth, async (req, res) => {
 
 // Update project from GitHub
 router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
+  // Check if git is installed
+  if (!isGitAvailable()) {
+    return res.status(500).json({ error: 'Git is not installed on this server. Please contact the administrator.' });
+  }
+  
   const projectsDir = path.resolve(__dirname, '..', '..', config.storage.projectsDir);
   const projectPath = path.join(projectsDir, req.params.name);
   const metaPath = path.join(projectPath, '.project-meta.json');
@@ -415,7 +435,7 @@ router.post('/api/projects/:name/update', requireAuth, async (req, res) => {
     } catch (gitError) {
       const stderr = gitError.stderr ? gitError.stderr.toString() : '';
       console.error('Git clone error (update):', stderr || gitError.message);
-      throw new Error('Failed to clone repository. The repository may have been deleted or made private. ' + (stderr || ''));
+      throw new Error('Failed to clone repository. The repository may have been deleted or made private.');
     }
     
     // Remove .git directory

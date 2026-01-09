@@ -34,6 +34,12 @@
     .header-actions {
       display: flex;
       gap: 12px;
+      align-items: center;
+    }
+    
+    #authButtons {
+      display: flex;
+      gap: 12px;
     }
     
     .btn {
@@ -272,8 +278,9 @@
     <h1>📦 Repository Browser</h1>
     <div class="header-actions">
       <button class="btn btn-secondary" onclick="window.location.href='/files'">📁 Files</button>
-      <button class="btn btn-secondary" onclick="window.location.href='/auth/settings'">⚙️ Settings</button>
-      <button class="btn btn-secondary" onclick="window.location.href='/auth/logout'">Logout</button>
+      <div id="authButtons">
+        <!-- Will be populated based on login status -->
+      </div>
     </div>
   </header>
   
@@ -332,9 +339,53 @@
   <script>
     let repositoryUrl = '';
     let artifacts = [];
+    let isLoggedIn = false;
     
     // Initialize
-    document.addEventListener('DOMContentLoaded', loadArtifacts);
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkLoginStatus();
+      loadArtifacts();
+    });
+    
+    // Check login status
+    async function checkLoginStatus() {
+      try {
+        const response = await fetch('/files/api/me');
+        const data = await response.json();
+        isLoggedIn = data.loggedIn;
+        updateAuthButtons();
+      } catch (err) {
+        console.error('Failed to check login status:', err);
+        isLoggedIn = false;
+        updateAuthButtons();
+      }
+    }
+    
+    // Update auth buttons based on login status
+    function updateAuthButtons() {
+      const authButtons = document.getElementById('authButtons');
+      
+      if (isLoggedIn) {
+        authButtons.innerHTML = `
+          <button class="btn btn-secondary" onclick="window.location.href='/auth/settings'">⚙️ Settings</button>
+          <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        `;
+      } else {
+        authButtons.innerHTML = `
+          <button class="btn btn-secondary" onclick="window.location.href='/auth/login'">Login</button>
+        `;
+      }
+    }
+    
+    // Logout
+    async function logout() {
+      try {
+        await fetch('/auth/logout', { method: 'POST' });
+        window.location.reload();
+      } catch (err) {
+        window.location.href = '/auth/logout';
+      }
+    }
     
     // Show notification
     function showNotification(message) {
